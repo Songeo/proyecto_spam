@@ -1,6 +1,6 @@
 
 
-# SPAM detection with Text Mining
+# SPAM detection and Text Mining
 
 ## Proyecto Final
 
