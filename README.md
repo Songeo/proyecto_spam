@@ -2,15 +2,21 @@
 
 # SPAM detection and Text Mining
 
-## Proyecto Final
+## Proyecto Final: est25134_2017a
 
-### est25134_2017a
+CU: 105720
 
 ---
 
-# template
+Data: Emails.Spam.csv
 
-Welcome to ProjectTemplate!
+Variable: Spam (24%) - No Spam (76%)
+
+Predictors: Email text
+
+---
+
+This project uses Project Template:
 
 This file introduces you to ProjectTemplate, but you should eventually replace
 the contents of this file with an introduction to your project. People who
