@@ -1,7 +1,7 @@
 library(ProjectTemplate)
 reload.project()
 
-load("cache/df.train.test.RData")
+load("cache/dtm_train.RData")
 
 library(e1071)
 
