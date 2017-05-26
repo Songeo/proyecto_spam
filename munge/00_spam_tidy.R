@@ -1,6 +1,6 @@
 # library(ProjectTemplate)
-# load.project()
-
+# reload.project()
+library(ProjectTemplate)
 library(tidyverse)
 library(tidytext)
 library(wordcloud)
