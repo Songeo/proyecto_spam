@@ -7,6 +7,9 @@ library(gridExtra)
 library(ggbiplot)
 
 load("cache/tab.spam.rsparse.RData")
+load("cache/df.spam.tidy.RData")
+load("cache/df.spam.RData")
+
 df.eda <- tab.spam.rsparse
 
 df.eda$document %>% n_distinct()
@@ -18,37 +21,9 @@ df.eda %>%
   ungroup %>% 
   mutate(prop = n/sum(n))
 
-
-
-# ............................................................................ # 
-
-# Palabras por documentos original
-load("cache/df.spam.tidy.RData")
-df.spam.tidy %>% 
-  count(document, spam, sort = TRUE) %>% 
-  ungroup %>% 
-  group_by(spam) %>% 
-  summarise(`promedio original` = mean(n)) %>% 
-  ungroup() 
-
-df.spam.tidy %>% 
-  count(document, sort = TRUE) %>% 
-  .$n %>% 
-  summary()
-
-# ejemplo de mails con poco texto
-selec.docs <- df.spam.tidy %>% 
-  count(document, sort = TRUE) %>% 
-  filter(n < 5) %>% 
-  .$document
-df.spam %>% 
-  filter(document %in% selec.docs)
-df.spam.tidy %>% 
-  filter(document == "5053")
-
 # ejemplo de texto por spam/nospam
 df.spam.tidy %>% 
-  count(document, spam, sort = TRUE) %>% 
+  dplyr::count(document, spam, sort = TRUE) %>% 
   filter(n == 20)
 
 df.spam %>% 
@@ -66,18 +41,55 @@ df.spam.tidy %>%
 # Palabras por documentos preprocesamiento
 df.eda %>% 
   group_by(document, spam) %>% 
-  summarise(n_words = sum(count)) %>% 
+  dplyr::summarise(n_words = sum(count)) %>% 
   ungroup %>% 
   group_by(spam) %>% 
-  summarise(`promedio filtro` = mean(n_words)) %>% 
+  dplyr::summarise(`promedio filtro` = mean(n_words)) %>% 
   ungroup() 
+
+df.eda %>% 
+  group_by(document, spam) %>% 
+  dplyr::summarise(n_words = sum(count)) %>% 
+  ungroup %>% 
+  .$n_words %>% 
+  summary() %>% 
+  tidy %>% t %>% 
+  data.frame() %>% 
+  rownames_to_column("Estadísticos") 
+
+
+# ............................................................................ # 
+
+# Palabras por documentos original
+df.spam.tidy %>% 
+  dplyr::count(document, spam, sort = TRUE) %>% 
+  ungroup %>% 
+  group_by(spam) %>% 
+  dplyr::summarise(`promedio original` = mean(n)) %>% 
+  ungroup() 
+
+df.spam.tidy %>% 
+  dplyr::count(document, sort = TRUE) %>% 
+  .$n %>% 
+  summary()
+
+# ejemplo de mails con poco texto
+selec.docs <- df.spam.tidy %>% 
+  dplyr::count(document, sort = TRUE) %>% 
+  filter(n < 5) %>% 
+  .$document
+df.spam %>% 
+  filter(document %in% selec.docs)
+df.spam.tidy %>% 
+  filter(document == "5053")
+
 
 
 
 # ............................................................................ # 
 
 # Histograma: descripción de valores
-df.eda %>% 
+gg <- df.eda %>% 
   gather(var.label, var.value, tf:tf_idf) %>% 
   group_by(var.label) %>% 
   mutate(median = median(var.value)) %>% 
@@ -92,10 +104,10 @@ df.eda %>%
   ylab("frecuencia\n(miles)") +
   ggtitle("Distribución de mediciones de términos/palabras ")  + 
   scale_y_continuous(labels = function(x)x/1000) 
-ggsave(filename = "graphs/eda/01_tfidf_hist.png", width = 6, height = 4)
+ggsave(filename = "graphs/eda/01_tfidf_hist.png",plot = gg, width = 6, height = 2.5)
 
 
-# Boxplot: descripción de valores
+ # Boxplot: descripción de valores
 gg <- df.eda %>% 
   gather(var.label, var.value, tf:tf_idf, count) %>% 
   ggplot(aes(y = var.value, x = var.label)) +
