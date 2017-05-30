@@ -10,10 +10,10 @@ library(e1071)
 
 # df train test
 df.train <- dtm.df[indicetrain, ] %>% 
-  dplyr::select(-document, -n_words) %>% 
+  dplyr::select(-document) %>% 
   mutate(spam = factor(spam))
 df.test <- dtm.df[-indicetrain, ] %>% 
-  dplyr::select(-document, -n_words) %>% 
+  dplyr::select(-document) %>% 
   mutate(spam = factor(spam))
 
 

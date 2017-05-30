@@ -37,7 +37,7 @@ rf.mod <- randomForest(formula = spam ~ .,
                        importance = TRUE,
                        keep.inbag = TRUE)
 
-
+# entrenamiento
 preds.train <- predict(rf.mod)
 preds.train %>% head
 
