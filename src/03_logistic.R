@@ -2,7 +2,7 @@ library(ProjectTemplate)
 reload.project()
 
 load("cache/dtm_train.RData")
-load("cache/df.train.test.RData")
+#load("cache/df.train.test.RData")
 
 library(glmnet)
 library(arm)
@@ -12,44 +12,83 @@ library(arm)
 
 # df train test
 df.train <- dtm.df[indicetrain, ] %>% 
-  dplyr::select(-document, -n_words)
+  dplyr::select(-document) %>% 
+  mutate(spam = factor(spam))
 df.test <- dtm.df[-indicetrain, ] %>% 
-  dplyr::select(-document, -n_words)
-
-names(df.train)
+  dplyr::select(-document) %>% 
+  mutate(spam = factor(spam))
 
 
 
 # ............................................................................ # 
 
 # Logistic Regression
-formu <- paste("spam ~", paste0(names(df.train)[-length(names(df.train))], 
-                                collapse = " + ")) %>% 
-  as.formula()
 
-logit.mod <- glm(formula = spam~., data = df.train, family = "binomial")
+logit.mod <- glm(formula = spam~., data = df.train, 
+                 family = binomial(link = "probit"),
+                 maxit = 500)
 
+logit.mod <- bayesglm(formula = spam~., data = df.train, 
+                 family = binomial(link = "logit"))
+
+
+gg.dens <- data.frame(preds = predict(logit.mod, type='link'),
+           spam =df.train$spam) %>% 
+  ggplot(aes(x = preds, color = spam)) + 
+  geom_density() + 
+  xlab("Prediccion Link") + 
+  ggtitle("Distribución de Predicción Link",
+          "Regresión Logística")
+
+
+
+
+# entrenamiento
 preds.train <- predict(logit.mod, type = "response") %>% round()
-resid.train <- resid(logit.mod, "response")
-binnedplot(preds.train, resid.train)
+preds.train %>% head
 
-table(df.train$spam, preds.train)
-table(df.train$spam, preds.train) %>% prop.table(2)
+(tab.acc.train <- table(df.train$spam ==  preds.train))
+(tab.conf.train <- table(df.train$spam, preds.train))
 
-verification::roc.plot(x = df.train$spam,
-                       pred = preds.train)#, 
-                       # plot = 'both', binormal =T, CI = T, n.boot = 500)
-
+# roc train
+ggroc.train <- CRoc_GG(obs = as.numeric(as.character(df.train$spam)),
+                       pred = as.numeric(as.character(preds.train)),
+                       mod.tit = "Regresión Logit (Entrenamiento)")
+ggroc.train
+# ............................................................................ # 
 
 # Test results
 preds.test <- predict(logit.mod, newdata = df.test, type = "response") %>% round()
+preds.test %>% head
 
-table(df.test$spam, preds.test)
-table(df.test$spam, preds.test) %>% prop.table(2)
+(tab.acc.test <- table(df.test$spam ==  preds.test))
+(tab.conf.test <- table(df.test$spam, preds.test))
 
-verification::roc.plot(x = df.test$spam,
-                       pred = preds.test)
+ggroc.test <- CRoc_GG(obs  = as.numeric(as.character(df.test$spam)),
+                      pred = as.numeric(as.character(preds.test)),
+                      mod.tit = "Regresión Logit (Prueba)")
+ggroc.test
 
+
+
+# ............................................................................ # 
+
+# Saving parameters
+
+results.logit <- list(tab.acc.train, tab.conf.train, ggroc.train,
+                   tab.acc.test, tab.conf.test, ggroc.test, 
+                   gg.dens)
+
+save(results.logit, file = "cache/results_models/results_logit.Rdata")
+
+
+
+
+
+
+
+# ............................................................................ # 
+# Otros intentos
 # ............................................................................ # 
 
 # glmnet
