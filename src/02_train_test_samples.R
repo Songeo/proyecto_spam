@@ -64,8 +64,8 @@ length(indice0)
 
 set.seed(105720)
 # cerca del 80% es una muestra de entrenamiento
-indice1train <- sample(indice1, 800, replace=F) 
-indice0train <- sample(indice0, 800, replace=F) 
+indice1train <- sample(indice1, 900, replace=F) 
+indice0train <- sample(indice0, 900, replace=F) 
 indicetrain <- c(indice1train,indice0train)
 
 y.train <- dtm.df$spam[indicetrain]
@@ -87,3 +87,14 @@ save(y.train,
 save(indicetrain, 
      dtm.df, file = "cache/dtm_train.RData")
 
+
+
+
+# ............................................................................ # 
+
+indice1 %>% length
+length(indice1train)/length(indice1)
+
+indice0 %>% length
+length(indice0train)/length(indice0)
+length(indice0train)+length(indice1train)
