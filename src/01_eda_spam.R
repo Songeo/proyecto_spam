@@ -126,7 +126,7 @@ ggsave(filename = "graphs/eda/01_tfidf_boxplot.png", plot = gg, width = 7, heigh
  # Wordclouds freq (n)
 gg.1 <- df.eda %>% 
   group_by(term) %>% 
-  summarise(n = sum(count)) %>% 
+  dplyr::summarise(n = sum(count)) %>% 
   ungroup() %>% 
   arrange(desc(n)) %>% 
   .[1:50, ] %>% 
@@ -142,12 +142,12 @@ gg.1 <- df.eda %>%
   scale_color_continuous(low = "#99c899", high = "#00aa00") +
   scale_alpha_continuous(range = c(.9, 1)) +
   ggtitle("Wordcloud freq",
-          subtitle = "Documento: total")
+          subtitle = "Etiqueta: total")
 
 # Wordcloud freq spam vs nospam
 tab.spam <- df.eda %>% 
   group_by(spam, term) %>% 
-  summarise(n = sum(count)) %>% 
+  dplyr::summarise(n = sum(count)) %>% 
   ungroup() %>% 
   arrange(desc(n)) 
 
@@ -166,7 +166,7 @@ gg.2 <- tab.spam %>%
   scale_color_continuous(low = "#cce3e3", high = "#007777") +
   scale_alpha_continuous(range = c(.9, 1)) +
   ggtitle("Wordcloud freq",
-          subtitle = "Documento: no spam")
+          subtitle = "Etiqueta: no spam")
 
 gg.3 <- tab.spam %>% 
   filter(spam == 1) %>% 
@@ -183,7 +183,7 @@ gg.3 <- tab.spam %>%
   scale_color_continuous(low = "#e3cce3", high = "#770077") +
   scale_alpha_continuous(range = c(.9, 1)) +
   ggtitle("Wordcloud freq",
-          subtitle = "Documento: spam")
+          subtitle = "Etiqueta: spam")
 
 gg <- grid.arrange(gg.1, gg.2, gg.3, nrow = 1)
 ggsave("graphs/eda/02_wc_freq.png", plot = gg, width = 10, height = 4)
@@ -195,7 +195,7 @@ ggsave("graphs/eda/02_wc_freq.png", plot = gg, width = 10, height = 4)
 # Wordclouds tf-idf
 gg.1 <- df.eda %>% 
   group_by(term) %>% 
-  summarise(n = mean(tf_idf)) %>% 
+  dplyr::summarise(n = mean(tf_idf)) %>% 
   ungroup() %>% 
   arrange(desc(n)) %>% 
   .[1:50, ] %>% 
@@ -211,12 +211,12 @@ gg.1 <- df.eda %>%
   scale_color_continuous(low = "#99c899", high = "#00aa00") +
   scale_alpha_continuous(range = c(.9, 1)) +
   ggtitle("Wordcloud tf-idf",
-          subtitle = "Documento: total")
+          subtitle = "Etiqueta: total")
 
 # Wordcloud tf-idf spam vs nospam
 tab.spam <- df.eda %>% 
   group_by(spam, term) %>% 
-  summarise(n = sum(tf_idf)) %>% 
+  dplyr::summarise(n = sum(tf_idf)) %>% 
   ungroup() %>% 
   arrange(desc(n)) 
 
@@ -235,7 +235,7 @@ gg.2 <- tab.spam %>%
   scale_color_continuous(low = "#cce3e3", high = "#007777") +
   scale_alpha_continuous(range = c(.9, 1)) +
   ggtitle("Wordcloud tf-idf",
-          subtitle = "Documento: no spam")
+          subtitle = "Etiqueta: no spam")
 
 gg.3 <- tab.spam %>% 
   filter(spam == 1) %>% 
@@ -252,7 +252,7 @@ gg.3 <- tab.spam %>%
   scale_color_continuous(low = "#e3cce3", high = "#770077") +
   scale_alpha_continuous(range = c(.9, 1)) +
   ggtitle("Wordcloud tf-idf",
-          subtitle = "Documento: spam")
+          subtitle = "Etiqueta: spam")
 
 gg <- grid.arrange(gg.1, gg.2, gg.3, nrow = 1)
 ggsave("graphs/eda/02_wc_tfidf.png", plot = gg, width = 10, height = 4)
@@ -294,7 +294,7 @@ rect.hclust(hcl.pca, k = 15, border="#f69640")
 png("graphs/eda/03_hclust_terms_total.png", width = 1700, height = 1000)
 plot(hcl.pca, #labels=tab.spread$category,
      cex = 1.6,
-     main = "Dendograma\nDocumento: total",
+     main = "Dendograma\nEtiqueta: total",
      col = "#00aa00", col.main = "#00aa00", col.lab = "#00aa00", 
      col.axis = "#F38630", sub = "", axes = FALSE)#, hang = -1)
 dev.off()
@@ -336,8 +336,9 @@ rect.hclust(hcl.pca, k = 15, border="#f69640")
 
 png("graphs/eda/03_hclust_terms_nospam.png", width = 1700, height = 1000)
 plot(hcl.pca, #labels=tab.spread$category,
-     cex = 1.6,
-     main = "Dendograma\nDocumento: no spam",
+     cex = 1.3,
+     # cex = .7,
+     main = "Dendograma\nEtiqueta: no spam",
      col = "#007777", col.main = "#007777", col.lab = "#007777", 
      col.axis = "#F38630", sub = "", axes = FALSE)#, hang = -1)
 dev.off()
@@ -381,7 +382,7 @@ rect.hclust(hcl.pca, k = 15, border="#f69640")
 png("graphs/eda/03_hclust_terms_spam.png", width = 1700, height = 1000)
 plot(hcl.pca, #labels=tab.spread$category,
      cex = 1.6,
-     main = "Dendograma\nDocumento: spam",
+     main = "Dendograma\nEtiqueta: spam",
      col = "#770077", col.main = "#770077", col.lab = "#770077", 
      col.axis = "#F38630", sub = "", axes = FALSE)#, hang = -1)
 dev.off()

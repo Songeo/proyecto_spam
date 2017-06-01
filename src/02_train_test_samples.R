@@ -93,8 +93,11 @@ save(indicetrain,
 # ............................................................................ # 
 
 indice1 %>% length
-length(indice1train)/length(indice1)
+100*length(indice1train)/length(indice1)
 
 indice0 %>% length
 length(indice0train)/length(indice0)
 length(indice0train)+length(indice1train)
+
+round(100*1800/(length(indice0)+length(indice1)))
+

@@ -120,14 +120,14 @@ sapply(names(list.test.results), function(nom.elem){
   deviance <- -2*log(prob.mod)
   gf <- sum(deviance)/length(prob)
   
-  c(`goodness of fit` = gf, 
-    `complexity penalization` = cpk,
-    `DIC` =  gf + cpk) %>% 
-    round(3)
+  c(`bondad de ajuste` = gf, 
+    `penalización complejidad` = cpk,
+    `DIC` =  gf + 0) %>% 
+    round(4)
   }) %>% 
   data.frame(check.names = F) %>% 
   rownames_to_column("medición") %>% 
-  xtable(., digits = 0, align = "rr|cc") %>% 
+  xtable(., digits = 2, align = "rr|cc") %>% 
   print(include.rownames = F)
 
 
