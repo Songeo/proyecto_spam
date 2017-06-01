@@ -33,6 +33,7 @@ boost.mod <- gbm(spam ~ .,
                  train.fraction = 1.)   
 gbm.perf(boost.mod)
 
+cache("boost.mod")
 
 
 # entrenamiento
@@ -81,3 +82,20 @@ results.gb <- list(tab.acc.train, tab.conf.train, ggroc.train,
                    tab.acc.test, tab.conf.test, ggroc.test)
 
 save(results.gb, file = "cache/results_models/results_gboost.Rdata")
+
+
+# Para devianza
+preds.prob.test <- predict.gbm(boost.mod, 
+                               newdata = df.test, 
+                               n.trees = trees.num, 
+                               type="response")
+preds.resp.test <- predict.gbm(boost.mod, 
+                               newdata = df.test, 
+                               n.trees = trees.num, 
+                               type="response") %>% 
+  round
+
+test.results.gb <- list(prob = preds.prob.test, 
+                        resp = preds.resp.test,
+                        obs = df.test$spam)
+save(test.results.gb, file = "cache/results_models/test_results_gboost.Rdata")

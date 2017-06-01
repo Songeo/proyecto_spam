@@ -20,11 +20,11 @@ df.test <- dtm.df[-indicetrain, ] %>%
 # ............................................................................ # 
 
 # Model
-formu <- paste("spam ~", paste0(names(df.train)[-length(names(df.train))], 
-                                collapse = " + ")) %>% 
-  as.formula()
 
-svm.mod <- svm(formula = spam ~., data = df.train)
+svm.mod <- svm(formula = spam ~., data = df.train, 
+               type = "C-classification", 
+               kernel = "radial")
+svm.mod
 
 preds.train <- predict(object = svm.mod, newdata = df.train)
 preds.train %>% head
@@ -37,6 +37,9 @@ ggroc.train <- CRoc_GG(obs = as.numeric(as.character(df.train$spam)),
                        pred = as.numeric(as.character(preds.train)),
                        mod.tit = "SVM (Entrenamiento)")
 ggroc.train
+
+roc(as.numeric(as.character(df.train$spam)), 
+    as.numeric(as.character(preds.train))) 
 
 
 
@@ -54,6 +57,9 @@ ggroc.test <- CRoc_GG(obs = as.numeric(as.character(df.test$spam)),
                       mod.tit = "SVM (Prueba)")
 ggroc.test
 
+
+roc(as.numeric(as.character(df.test$spam)), 
+    as.numeric(as.character(preds.test))) 
 
 
 # ............................................................................ # 

@@ -28,8 +28,8 @@ logit.mod <- glm(formula = spam~., data = df.train,
                  family = binomial(link = "probit"),
                  maxit = 500)
 
-logit.mod <- bayesglm(formula = spam~., data = df.train, 
-                 family = binomial(link = "logit"))
+# logit.mod <- bayesglm(formula = spam~., data = df.train, 
+#                  family = binomial(link = "logit"))
 
 
 gg.dens <- data.frame(preds = predict(logit.mod, type='link'),

@@ -25,17 +25,14 @@ names(df.test)[1:281] <- paste0("x", 1:281)
 # ............................................................................ # 
 
 # Random Forest Classification
-formu <- paste("spam ~", paste0(names(df.train)[-length(names(df.train))], 
-                                collapse = " + ")) %>% 
-  as.formula()
-
 
 rf.mod <- randomForest(formula = spam ~ ., 
                        data = df.train, #type = "classification",
-                       ntree = 1000,
+                       ntree = 4000,
                        nodesize = 25,
                        importance = TRUE,
                        keep.inbag = TRUE)
+cache("rf.mod")
 
 # entrenamiento
 preds.train <- predict(rf.mod)
@@ -75,3 +72,15 @@ results.rf <- list(tab.acc.train, tab.conf.train, ggroc.train,
                     tab.acc.test, tab.conf.test, ggroc.test)
 
 save(results.rf, file = "cache/results_models/results_rforest.Rdata")
+
+
+
+
+# Para devianza
+preds.prob.test <- predict(rf.mod, newdata = df.test, type = "prob")[, 2]
+preds.resp.test <- predict(rf.mod, newdata = df.test, type = "response") 
+
+test.results.rf <- list(prob = preds.prob.test, 
+     resp = preds.resp.test,
+     obs = df.test$spam)
+save(test.results.rf, file = "cache/results_models/test_results_rforest.Rdata")
