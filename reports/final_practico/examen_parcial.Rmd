@@ -18,6 +18,7 @@ theme_set(theme_bw())
 load("../../cache/df.spam.RData")
 load("../../cache/df.spam.tidy.RData")
 load("../../cache/tab.spam.rsparse.RData")
+load("../../cache/dtm_train.RData")
 df.eda <- tab.spam.rsparse
 ```
 
@@ -50,15 +51,8 @@ el análisis.
 Posteriormente se presenta el análisis exploratorio 
 de las variables extraídas del texto.
 En la siguiente sección se muestran diferentes algoritmos para 
-la predicción de spam, entre ellos,
-Naive Bayes, Regresión Logística y
-Máquinas de Soporte Vectorial. 
-En la sección siguiente se presenta el análisis 
-de selección de modelo considerando los resultados de la 
-implementación de modelos.
-Finalmente, en las dos secciones siguientes
-se presentan los resultados y conclusiones
-del trabajo.
+la predicción de spam y finalmente un resumen para la
+selección entre varios modelos.
 
 
 Los datos usados en este proyecto 
@@ -77,23 +71,48 @@ promotion is available in your area .  ubycvski}
 a summary of what ' s going to the bod , along with updated policy . feel  
 free to call me if you have any questions .  regards ,  cassandra .}
 
+
+El documento presenta técnicas descriptiva como 
+componentes principales y agrupación jerárquica 
+como método descriptivo y exploratorio de los datos. 
+
+Respecto a los modelos de clasificación 
+supervisada se concentra el análisis en cuatro 
+algoritmos, dos de generación de hiperplanos y 
+dos de ensamblaje:
+
+1. Regresión Logística.
+
+2. Máquinas de Soporte Vectorial (SVM).
+
+3. Bosques Aleatorios de árboles de clasificación. 
+
+4. Gradient Boosting de árboles de clasificación. 
+
+
+Sobre estos algoritmos se realiza una evaluación de 
+selección de modelos resultantes con dos enfoques: 
+el primero considerando  devianza y el segundo la matriz
+de confusión de cada predicción.
+
+
 \bigskip
 
 En la siguiente sección se profundiza sobre
 el contenido de los datos y se presenta 
 una breve explicación del 
-preprocesamiento realizado. 
+pre procesamiento realizado. 
 
 
 \section{Procesamiento del Texto}
 
 El cuerpo de trabajo que se usó en el proyecto 
 proviene del texto de cada correo electrónico. Para poder
-realizar el modelo predictivo, previemente se usaron 
+realizar el modelo predictivo, previamente se usaron 
 técnicas de minería de texto. En primer lugar
 se realizó la tokenización del cuerpo de texto, es decir, 
 se separo el cuerpo por palabras y
-se elminaron números, *stop words*\footnote{Lista de palabras
+se eliminaron números, *stop words*\footnote{Lista de palabras
 en inglés del proyecto de stemmatización Snowball de
 <http://snowball.tartarus.org/algorithms/english/stop.txt>.}
 y signos de puntuación. 
@@ -138,25 +157,25 @@ palabras.
 El siguiente filtro que se aplicó fue eliminar el 5% de términos 
 escasos (*sparse*). Después de este filtro el número de palabras se 
 reduce a `r tab.spam.rsparse$term %>% n_distinct()` que son las palabras
-con las que se realizará el análisis.
+con las que se realizará el análisis del proyecto.
 
 El siguiente paso importante es la construcción del
 valor numérico
-**term-frequency-inverse-document- frequency** (tf-idf) que
+**term-frequency inverse-document-frequency** (tf-idf) que
 refleja la *importancia* de cada palabra para el documento/email en
 una colección de corpus o conjunto de correos. Generalmente es usada
 como un factor de ponderación por que valora la proporción de veces
 que la palabra aparece en el documento pero penaliza por la 
 frecuencia con la que aparece en el corpus, lo que permite ajustar
-el hecho de que algunas palabras se usan com mayor frecuencia. 
+el hecho de que algunas palabras se usan con mayor frecuencia. 
 En la actualidad esta medida es uno 
 de los esquemas de ponderación de términos más populares.
 
 Finalmente, con la base de datos de palabras resultante y 
 la variable tf-idf se construye la matriz de documento por 
-término (*document-term matrix*).
-Considerando la estructura y los filtros presentados previamente, 
-en la siguiente sección se presenta un análisis exploratorio de los datos. 
+término (*tf-idf document-term matrix*).
+En la siguiente sección se presenta un análisis exploratorio de
+ésta última matriz. 
 
 
 
@@ -170,19 +189,24 @@ En esta sección se explorará el comportamiento de los
 asociado a los términos seleccionados en el 
 proceso anterior. 
 
-Una característica importante de los datos es el desbalance
+Una característica importante de los datos es el des balance
 que existe entre las etiquetas. El número de correos 
 identificados como spam es igual a 
 `r filter(df.spam, spam == 1)$spam %>% length()`, lo que 
 corresponde al 
 `r round(100*length(filter(df.spam, spam == 1)$spam)/nrow(df.spam))`% 
-de las observiaciones. Esto es relevante ya que al 
-momento de modelar es necesario considerar esto. 
+de las observaciones. Esto es relevante ya que al 
+modelar se vuelve un factor importante para seleccionar las muestras de 
+entrenamiento y prueba. De esto hablará en el capítulos siguientes. 
 
 
+El primer acercamiento que se realiza sobre el conjunto de documentos
+es evaluar el número de palabras observado por documento. Aunque en 
+promedio se tienen 58 palabras por documento, el mínimo observado es de 
+una palabra hasta el máximo de 1040. 
 
 ```{r}
-df.eda %>% 
+tab <- df.eda %>% 
   group_by(document, spam) %>% 
   dplyr::summarise(n_words = sum(count)) %>% 
   ungroup %>% 
@@ -190,83 +214,725 @@ df.eda %>%
   summary() %>% 
   tidy() %>% t %>% 
   data.frame() %>% 
-  rownames_to_column("Número de palabras") %>% 
+  rownames_to_column("Número de palabras") 
+colnames(tab) <- c("# palabras", "total")
+tab %>% 
   knitr::kable(digits = 0, align = "rc")
 ```
 
 
+Ahora bien, En la siguiente gráfica se puede ver que 
+si consideramos el número promedio de palabras entre las
+dos etiquetas se observa menor cantidad en los emails clasificados como 
+spam. 
 
 ```{r}
-df.eda %>% 
+tab <- df.eda %>% 
   group_by(document, spam) %>% 
   dplyr::summarise(n_words = sum(count)) %>% 
   ungroup %>% 
   group_by(spam) %>% 
-  dplyr::summarise(`promedio palabras` = mean(n_words)) %>% 
+  dplyr::summarise(q1 = quantile(n_words, .25),
+                   `median` = median(n_words),
+                   `mean` = mean(n_words),
+                   q3 = quantile(n_words, .75)) %>% 
   ungroup() %>% 
-  knitr::kable(align = "rl", digits = c(0,0))
+  t() %>% 
+  round %>% 
+  data.frame() %>% 
+  rownames_to_column("Número de palabras") 
+colnames(tab) <- c("# palabras", "no spam", 'spam')
+
+knitr::kable(tab[-1, ],  align = "rcc", digits = 0, row.names = F)
 ```
 
 
 
-
-
-```{r, out.width='80%'}
-knitr::include_graphics("../../graphs/eda/01_tfidf_hist.png")
-```
-
-
-
+El objetivo siguiente es evaluar la frecuencia de términos en general y 
+realizar un comparativo entre etiquetas
 
 
 \subsection{Frecuencia de Términos}
+
+El comparativo entre etiquetas de la frecuencia de términos se presenta en la
+siguiente nube de palabras considerando únicamente los 50 términos más
+frecuentes por etiqueta y el total. El tamaño así como la 
+transparencia refleja la frecuencia de cada término, entre más 
+grande y conciso el color mayor número de apariciones en los documentos. 
 
 
 ```{r, out.width='90%'}
 knitr::include_graphics("../../graphs/eda/02_wc_freq.png")
 ```
 
+En general, se observa que predominan las palabras *subject, enron, will, ect*. 
+También se observa un comportamiento distinto 
+entre no spam (gráfica del centro) y spam (gráfica derecha) a excepción 
+de la palabra *subject* que en ambas gráficas tiene un tamaño
+predominante. 
+
+
+En la siguiente gráfica se presenta el valor promedio por palabra de
+tf-idf  para cada etiqueta. En este caso, el resultado 
+da un giro y si bien en el total de los documentos se observa
+un tamaño y transparencia homogénea; por cada etiqueta
+se observa un cambio en el que palabras similares a las del resultado de 
+frecuencia anterior se obtienen pero se eliminan palabras comunes como 
+*subject* y palabras como *will* tienen mayor importancia en 
+documentos que no son spam. 
+
+
+
 ```{r, out.width='90%'}
 knitr::include_graphics("../../graphs/eda/02_wc_tfidf.png")
 ```
+
+El resultado de ambas gráficas sugiere que el 
+valor tf-idf es la mejor forma para 
+resolver el problema de clasificación 
+supervisada. En consecuencia se realiza
+un análisis de asociación entre 
+términos con esta medida para cada etiqueta. 
 
 
 
 \subsection{Asociación entre Términos}
 
+La asociación entre los términos se evalúa
+con agrupación jerárquica de las componentes
+principales resultado de 
+una reducción de dimensionalidad que acumula el 60% 
+de la varianza. El objetivo de esto es presentar 
+el comportamiento de tf-idf de los términos 
+considerando el patrón de correlación de los 
+documentos. 
 
-```{r, out.width='90%'}
-knitr::include_graphics("../../graphs/eda/03_hclust_terms_total.png")
-```
+
+En los siguientes dendogramas se presenta la asociación 
+de términos para cada etiqueta. En el primer dendograma
+se puede observar que las primeras palabras que se asociación 
+son *online, software, website, click, free, better, home y credit*. 
+Esto confirma lo visto en las nubes de palabras.
+
 
 ```{r, out.width='90%'}
 knitr::include_graphics("../../graphs/eda/03_hclust_terms_spam.png")
 ```
+
+
+Por otro lado, las palabras para la etiqueta no spam que se asociación primero
+son *edu, presentation, version, resume, kevin, meeting, risk, trading y conference*.
+Esto contrasta completamente con los resultado obtenidos en los correos 
+spam.
 
 ```{r, out.width='90%'}
 knitr::include_graphics("../../graphs/eda/03_hclust_terms_nospam.png")
 ```
 
 
+Los gráficos anteriores confirman la hipótesis sobre el 
+comportamiento distinto de las palabras por etiqueta. 
+Finalmente, considerando los resultados de este
+capitulo, se usará la medida tf-idf y 
+el número de palabras de cada documento como variables explicativas 
+para el entrenamiento de un modelo predictivo de etiquetas. 
+En la siguiente sección se
+presentan los modelos implementados.
 
-\section{Modelos Predictivos}
 
-\subsection{Bayes Ingenuo NB}
+\section{Ajuste de Modelos}
+
+En esta sección se presenta un breve introducción, 
+dificultades y resultados obtenidos
+de los modelos de clasificación supervisada
+implementados.
+En total se implementaron cuatro modelos distintos:
+
+1. Regresión Logística
+2. Máquinas de Soporte Vectorial (SVM)
+3. Bosques Aleatorios
+4. Gradient Boosting de Árboles de Clasificación.
+
+
+
+En cada modelo se uso la misma matriz de documento-término
+con la medida tf-idf de cada uno. 
+Este conjunto de datos se separó en dos conjuntos el 
+de entrenamiento y prueba. 
+
+
+\subsubsection{Conjunto de Entrenamiento y Prueba}
+
+El conjunto de entrenamiento se seleccionó de forma aleatoria con
+una proporción de correos etiquetados como spam balanceada igual a  
+`r 100*sum(dtm.df$spam[indicetrain] == 1)/length(indicetrain)`%
+del conjunto. 
+En total el conjunto para entrenar los modelos
+tiene `r length(indicetrain)` observaciones 
+que representa el `r round(100*length(indicetrain)/nrow(df.spam) )`%. 
+El resto de las observaciones `r nrow(df.spam)-length(indicetrain)`
+forma parte del conjunto de prueba.
+
+En el total de la muestra, la proporción de etiqueta 
+de spam es igual a `r round(100*sum(df.spam$spam == 1 )/nrow(df.spam))`%. 
+En la muestra de entrenamiento se encuentra el 
+`r round(100*sum(dtm.df[indicetrain,]$spam == 1)/sum(dtm.df$spam == 1))`% 
+de las etiqueta spam.
+
+Respecto a la proporción de etiquetas 
+no spam es igual a `r round(100*sum(df.spam$spam == 0)/nrow(df.spam))`%.
+En la muestra de entrenamiento se encuentra el 
+`r round(100*sum(dtm.df[indicetrain,]$spam == 0)/sum(dtm.df$spam == 0))`% 
+de los documentos clasificados como no spam.
+
+Con la misma muestra de entrenamiento se entrenan los 
+siguientes cuatro modelos y se prueban con la misma
+muestra de prueba.
+
+En general, sea $y \in \{0,1\}$ la variable dependiente 
+donde $1$ es la etiqueta spam y $x = \{x_1, x_2, \ldots, x_{283}\}$
+las variables explicativas que incluye el número de 
+palabras por documento y el valor tf-idf por documento 
+de los 282 términos seleccionados. Entonces, 
+el objetivo es encontrar el modelo, tal que,
+
+$$
+\mathbb{P}(y^t = 1| x_1^t, x_2^t, \ldots, x_{283}^t )
+$$
+donde $\{y^t, x^t\}$ representa la muestra de entrenamiento y 
+$\{y^s, x^s\}$ la muestra de prueba. 
+
+
+
 
 \subsection{Regresión Logística}
 
+Una regresión logística es un modelo a la media 
+que realiza una proyección a un hiperplano
+lineal. El modelo 
+se define como, 
+
+$$
+\mathbb{P}(y^t = 1| x^t ) 
+\quad \text{tal que} \quad
+\mathbb{E}(y^t = 1| x^t ) = g(P(x^t))
+$$
+donde $g : \mathbb{R} \rightarrow \{0, 1\}$ es una función liga que 
+representa la separabilidad de las variables y $P$ representa 
+la proyección en un hiperplano de las 283 covariables, de tal forma que:
+$$
+P: \mathbb{R}^p \rightarrow \mathbb{R} 
+\quad \text{y} \quad
+g: \mathbb{R} \rightarrow \{0,1\}.
+$$
+
+La proyección define la combinación lineal
+del hiperplano como: 
+$$
+Proj (x^t) = 
+\alpha_1 x_1^t + \cdots + \alpha_{283} x_{283}^t 
+\quad \text{tal que} \quad
+\mathbb{E}(y^t = 1| x^t ) = g(\alpha_1 x_1^t + \cdots + \alpha_{283} x_{283}^t ) 
+$$
+
+
+En este caso se usa la función liga logística:
+$$
+g(a) = \frac{\exp(a) }{\exp(a) + 1}
+$$
+Entre más se observe un
+traslape de la función $g$ entre grupos, 
+mayor pendiente de la función. Si el traslape no existe, el 
+modelo no es el mejor acercamiento para resolver la clasificación. 
+
+En la siguiente gráfica se muestra la distribución 
+de la función liga de la proyección de $x^t$
+por cada etiqueta.
+```{r, fig.height=3, fig.width=4}
+load("../../cache/results_models/results_logit.Rdata")
+results.logit[[7]] +
+  ggtitle("Distribución Liga por Etiqueta", 
+          "Regresión Logística") + 
+  xlab("función liga")
+```
+Se puede observar que si bien no son completamente 
+separables, la región de traslape o incertidumbre 
+es muy pequeña lo que indica un problema en el modelo y 
+en la clasificación resultante. 
+
+Es importante considerar que la matriz de los predictores
+es rala o tiene muchos ceros, lo que es normal en análisis de texto. 
+Esto presenta problemas al generar el hiperplano dado que 
+el vector de los coeficientes $\{ \alpha \}_{i=1}^{283}$
+resulta en estimación espúrea por el soporte tan bajo y
+poco denso ya que muchos coeficientes serán ceros.
+
+La predicción sobre la muestra de entrenamiento 
+y prueba se presenta en las siguientes matrices de 
+confusión:
+
+```{r}
+results.logit[[2]] %>% 
+  kable(caption = "Muestra de Entrenamiento")
+```
+
+```{r}
+results.logit[[5]] %>% 
+  kable(caption = "Muestra de Prueba")
+```
+
+Se observa un problema en la muestra de entrenamiento
+ya que se observa una predicción perfecta, pero 
+en la predicción de prueba el resultado
+cambia y el error de clasificación aumenta, 
+principalmente para la etiqueta no spam. 
+
+
 \subsection{Máquinas de Soporte Vectorial}
 
-\subsection{Red Bayesiana}
+De forma similar a la regresión logística, una máquina 
+de soporte vectorial realiza un proyección $P$ a un 
+hiperplano, donde,
+$$
+P(x,\omega) + b 
+\;,
+\quad \omega \in \mathbb{R}^p 
+\quad \text{y} \quad
+b \in \mathbb{R}^p.
+$$
+
+En sí, SVM es un problema de optimización 
+en el que se busca minimizar la distribución 
+del hiperplano a los 
+puntos frontera y maximizar la distancia entre
+los puntos. Entonces, se eligirá el hiperplano
+tal que:
+$$
+P(x,\omega) + b  \;\;
+\left\{
+\begin{array}{cc}
+\leq 1 & \text{si} \; y = 1\\
+\geq 1 & \text{si} \; y = 0\\
+\end{array}
+\right.
+$$
+
+Una ventaja de SVM es que las proyecciones se pueden transformar con funciones
+kernel si no son linealmente separables y se generan márgenes o fronteras 
+de decisión no lineales. En la implementación de este problema se 
+uso el kernel $k$ gaussiano ó de base radial (RBF)
+por ser el más recomendado para este tipo de 
+problemas, que se define a continuación:
+$$
+K(a) = \frac{||a - a'||^2}{2 \sigma ^2}
+$$
+
+Este tipo de modelos es común en problemas de 
+clasificación de texto por la capacidad que tienen
+de tratar espacios de gran dimensión. 
+Sin embargo, en esta aplicación particular el problema
+sobre coeficientes $\{ \omega \}_{i=1}^{283}$
+con estimación espúrea persiste por la estructura de 
+los predictores.
+
+```{r}
+load("../../cache/results_models/results_svm.Rdata")
+```
 
 
-\section{Selección de Modelos}
+La predicción sobre la muestra de entrenamiento 
+y prueba se presenta en las siguientes matrices de 
+confusión:
 
-\section{Resultados}
+```{r}
+results.svm[[2]] %>% 
+  kable(caption = "Muestra de Entrenamiento")
+```
+
+```{r}
+results.svm[[5]] %>% 
+  kable(caption = "Muestra de Prueba")
+```
+
+De nuevo, se observa un problema en la muestra de entrenamiento
+ya que se observa una predicción semi perfecta y 
+en la predicción de prueba  el error de clasificación es 
+considerablemente
+mayor.
+
+Esto nos indica que estos modelos no son el mejor 
+acercamiento para este problema debido a la estructura de los datos.
+Esto por que si una observación particular,
+con una frontera de decisión clara,
+no se encuentra en los datos de entrenamiento
+entonces la predicción fallará.
+
+
+En consecuencia se intentaron
+dos algoritmos de ensamblaje de modelos no paramétricos 
+llamados árboles de decisión. 
+Es importante mencionar que un árbol de decisión si bien son 
+fácil de interpretar, son muy sensibles en su especificación
+por lo que el ajuste de árboles en la 
+forma de ensamblaje es la mejor manera de abordar 
+el problema.
+
+
+\subsection{Bosque Aleatorio}
+
+Un bosque aleatorio forma parte de los modelos 
+de ensamblaje por Bagging o Bootstrap Aggregation. 
+El algoritmo tiene como objetivo ensamblar, en este caso, 
+árboles de clasificación en un conjunto de $B$ réplicas
+bootstrap de la muestra de entrenamiento $\{y^t, x^t\}$
+que difieren entre sí por la información empleada para aprender
+de ellos de cada réplica. 
+
+El ensamblaje de los predictores se considera como una
+forma de votación en la que cada réplica/árbol vota por 
+una etiqueta para $y_i$. De esta forma se puede obtener una 
+probabilidad de clasificación para cada observación y decidir con 
+un umbral definido, que en este caso será del 50% de probabilidad. 
+
+```{r}
+load("../../cache/results_models/results_rforest.Rdata")
+```
+
+La predicción sobre la muestra de entrenamiento 
+y prueba se presenta en las siguientes matrices de 
+confusión:
+
+```{r}
+results.rf[[2]] %>% 
+  kable(caption = "Muestra de Entrenamiento")
+```
+
+```{r}
+results.rf[[5]] %>% 
+  kable(caption = "Muestra de Prueba")
+```
+
+El resultado no muestra un sobre ajuste de entrenamiento. 
+Aunque, se sigue observando error de predicción no es tan grave como en 
+los casos anteriores. 
+
+Este tipo de acercamientos se conoce como métodos de separación 
+granulada o *divide y triunfarás* por la forma en que se realiza 
+el remuestreo donde divide en submuestras de entrenamiento
+por el número de observaciones y también por variables columna.
+Esto ayuda a aislar el efecto de las variables sin importar, incluso,
+valores faltantes o datos desbalanceados. 
+
+A esta técnica se le conoce como estimación *out-of-bag* y consiste
+en evaluar para cada réplica de entrenamiento el árbol de decisión 
+generado en el resto de la observaciones no incluidas en la réplica de 
+entrenamiento.
+
+Finalmente, a este algoritmo también se le conoce como una implementación 
+en paralelo, dado que cada árbol corre en $B$ réplicas
+diferentes y al final se realizan las votaciones. 
+
+
+
+
+\subsection{Gradient Boosting}
+
+Finalmente, el último algoritmo de ensamblaje 
+que se implemento es Gradient Boosting de 
+árboles de clasificación. En este caso, 
+el algoritmo tiene como objetivo ensamblar los modelos
+pero considerando fracciones de muestras de entrenamiento 
+estructural mente sencillas al ser cada vez más
+pequeñas y eliminar el sesgo. 
+
+El método comienza con un árbol sencillo que se 
+prueba en la muestra original. Después 
+considera los errores de las primeras predicciones
+e implementa un segundo árbol, pero únicamente
+en las predicciones erróneas del primero. 
+Posteriormente se evalúa el segundo árbol y
+se seleccionan los nuevos errores de predicción sobre
+los que se implementa un tercer árbol y así sucesivamente. 
+Esto permite reducir los problemas de entrenamiento del modelo 
+causado por la estructura de los datos. 
+
+
+```{r}
+load("../../cache/results_models/results_gboost.Rdata")
+```
+
+
+Para la aplicación en el caso de 
+correos spam/no spam, la predicción sobre la muestra de entrenamiento 
+y prueba se presenta en las siguientes matrices de 
+confusión:
+
+```{r}
+results.gb[[2]] %>% 
+  kable(caption = "Muestra de Entrenamiento")
+```
+
+```{r}
+results.gb[[5]] %>% 
+  kable(caption = "Muestra de Prueba")
+```
+
+El resultado para este modelo es similar al 
+presentado antes. El error de predicción se observa
+principalmente en el caso de clasificación de no spam. 
+Lo que puede explicarse por la proporción de los datos 
+de no spam con los que se entrena el modelo que es 
+de aproximadamente 20%. 
+
+En contraste con Bosques Aleatorios, 
+este algoritmo tiene un implementación secuencial 
+por lo que tiene mayor tiempo de ejecución. Sin embargo, 
+si se es paciente, los resultados valen la pena. 
+
+
+
+\section{Evaluación de Modelos}
+
+La evaluación entre los cuatro modelos se
+realiza sobre los resultado obtenidos en 
+la muestra de entrenamiento por los modelos entrenados
+con la muestra de entrenamiento, es decir,
+se busca estimar,
+$$
+\mathbb{\hat P}(y^s = 1| x^t,  x^s).
+$$
+
+Es importante mencionar que existen diversas formas de evaluar
+los modelos. En este trabajo se presentan dos: la devianza y 
+la matriz de confusión. Cada caso se presenta
+a continuación. 
+
+
+\subsection{Devianza}
+
+En este caso, únicamente se evaluarán los modelos 
+de ensamblaje de árboles de decisión. 
+Dado que por este método se compara
+la función de verosimilitud los modelos son comparables 
+entre sí únicamente en pares. Es decir, los modelos
+que generan hiperplanos entre sí y los modelos 
+ensamblaje de árboles aleatorios entre sí. 
+
+Sin embargo, no se realizará la comparación de los modelos
+logístico y SVM por que, como se presentó a lo largo del 
+documento, no son el acercamiento correcto dado la 
+estructura de los datos. 
+
+
+La forma en que se realiza esta comparación es 
+por el criterio $DIC$ *Deviance Information Criterion*.
+Este criterio es una combinación entre 
+la bondad de ajuste y la complejidad del 
+problema. 
+
+Sea $m = \{1,2\}$ el indicador del modelo, 
+$y^*$ las predicciones correctas tanto positivas como 
+negativas, 
+$\#\theta_m$ el número de parámetros a estimar y 
+$n_m$ el tamaño de la muestra de prueba, entonces,
+
+$$
+DIC_m  = \frac{-2\log \{ P(y^*|x^t, x^s)\}}{M} + \frac{\log\{ \#\theta_m \}}{n_m}.
+$$
+
+En particular dado que es el mismo modelo con el mismo número 
+de parámetros a estimar y la misma muestra de prueba, la complejidad
+del modelo es la misma, por lo que no impactará el criterio.
+
+En la siguiente tabla se presenta el criterio $DIC$ para ambos
+modelos.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{r|cc}
+  \hline
+  medición & bosque aleatorio & gradient boosting \\ 
+  \hline
+  bondad de ajuste & 5.97 & 7.89 \\ 
+  penalización complejidad & 0.00 & 0.00 \\ 
+  DIC & 5.97 & 7.89 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+El algoritmo con menor criterio $DIC$, es decir, mayor acertividad son 
+los Bosques Aleatorios. 
+
+
+En particular, el criterio $DIC$ elige el modelo 
+que maximiza la acertividad en la predicción, por lo que 
+no importa si hay alta o baja incertidumbre.
+
+Como se mencionó previamente, existen otros métodos
+de seleccionar modelos que dependerán principalmente 
+del objetivo de la predicción. 
+Una forma de seleccionar modelos considerando la 
+incertidumbre es mediante la matriz de confusión, estos 
+resultados se presentan a continuación. 
+
+
+\subsection{Matriz de Confusión}
+
+En este método para seleccionar modelos se involucran
+otros criterios de incertidumbre. En la aplicación 
+de spam/no spam, si bien la clasificación de
+correos electrónicos en spam y no spam debe tener 
+exactitud (proporción de verdaderos 
+positivos y negativos altos), no es la única condición. 
+
+También se puede considerar que en el caso de 
+etiquetar un correo electrónico como no spam y ser spam tiene
+mayor riesgo para el usuario. Entonces, se puede sacrificar 
+exactitud o precisión (proporción de verdaderos positivos respecto 
+al total de valores positivo) por una tasa menor de falsos positivos. 
+
+En la siguiente tabla se presentan 
+las medidas de la tabla de 
+confusión\footnote{En el Apéndice Matriz de Confusión 
+se presenta la asignación de la matriz de confusión 
+de valores de falsos y verdaderos 
+valores positivos y negativos para el ejercicio.}.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{r|cccc}
+  \hline
+  medición & logística & SVM & bosque aleatorio & gradient boosting \\ 
+  \hline
+  exactitud & 93 & 96 & 97 & 95 \\ 
+  tasa verdadero positivo & 93 & 96 & 98 & 99 \\ 
+  tasa verdadero negativo & 93 & 96 & 97 & 94 \\ 
+  tasa falso positivo & 7 & 4 & 3 & 6 \\ 
+  tasa falso negativo & 7 & 4 & 2 & 1 \\ 
+  precisión & 65 & 75 & 80 & 69 \\ 
+   \hline
+\end{tabular}
+\end{table}
+
+Considerando exactitud y precisión los mejores resultados 
+se obtienen con bosque aleatorio y 
+máquinas de soporte vectorial. 
+Pero considerando la tasa de falsos positivos 
+la conclusión cambia, 
+los mejores resultados se obtienen por 
+gradient boosting y bosque aleatorio. 
+
+El peor resultado en general se obtiene
+con regresión logística por lo que se 
+descarta completamente ese modelo. Sin embargo, 
+sorprende el desempeño de la máquina de soporte 
+vectorial que muestra la efectividad de tratar con 
+datos de gran dimensión. 
+
+Para esta aplicación particular, como se mencionó antes,
+únicamente le daremos prioridad a tener mayor exactitud, 
+mayor precisión y la menor tasa de falsos negativos.
+Bajo estas condiciones el mejor resultado se obtiene 
+de bosque aleatorio. 
+
 
 \section{Conclusiones}
 
+La implementación de bosques aleatorios
+presenta el mejor ajuste 
+considerando exactitud, precisión y falsos negativos. 
+También presenta el mejor criterio de 
+selección considerando la devianza con 
+menor criterio DIC. 
+Por lo tanto se puede decir que 
+es el ganador absoluto en este caso. 
 
+
+Respecto a la selección de modelos también es importante considerar
+el objetivo final de la predicción. En este caso
+la exactitud y precisión se obtienen con mejor resultado en bosques 
+aleatorios, gradient boosting y SVM. Sin embargo, si se 
+considera el mejor acercamiento dado la estructura de los datos se 
+descarta SVM y considerando la tasa de falsos positivos como 
+un factor de riesgo, se selecciona únicamente bosques aleatorios. 
+
+
+La estructura de los datos define el método de modelación. 
+Las herramientas de aprendizaje de máquina y 
+modelación estadística se complementan, pero es necesario
+saber en qué situaciones son más adecuadas unas que otras. 
+En este caso los métodos de ensamblaje presentaron los mejores
+resultados de predicción bajo las condiciones 
+impuestas. 
+
+
+A futuro, si se desea hacer reducir 
+otra medidas de incertidumbre, como la tasa de falsos negativos,
+se propone modificar la 
+condición de balance entre etiquetas para la muestra de entrenamiento 
+y prueba de 50% puede ser demasiado rigurosa; lo que afecta la predicción
+del correo etiquetado como no spam. Una posible solución es modificar 
+esta condición a 40%-60% o 30%-70% dado que los modelos 
+de ensamblaje función bien para observaciones desbalanceadas. 
+
+
+
+
+
+\clearpage
+
+\appendix
+
+\section{Matriz de Confusión}
+
+Asignación de verdadero negativo (TN), 
+verdadero positivo (TP), 
+falso positivo (FP) y 
+falso negativo (FN).
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{r|cc}
+  \hline
+     & No Spam & Spam \\ 
+  \hline
+  No Spam & TN & FP \\
+  Spam & FN & TP \\
+   \hline
+\end{tabular}
+\end{table}
 
 \section{Referencias}
+
+\begin{itemize}
+
+
+\item \textbf{The Elements of Statistical Learning}. 
+T. Hastie, et al. Second Edition. New York, Springer. 2013.
+
+\item \textbf{Text Mining with R. A Tidy Approach}. J. Silge and D. Robinson. 2017.
+<http://tidytextmining.com/index.html>
+
+\item \textbf{Hierarchical Clustering: The R Stats Package}. F. Murtagh. 
+<https://stat.ethz.ch/R-manual/R-devel/library/stats/html/hclust.html>
+
+
+\item \textbf{Explaining Classification Models Built on High-Dimensional Sparse Data}. 
+J. Moeyersoms, et al. University of Antwerp, 2016.
+
+\item \textbf{Learning Word Vectors for Sentiment Analysis}. 
+A.Y. Ng, et al. Stanford University, 2011.
+
+\item \textbf{Sparse Linear Models with demonstrations using glmnet}. 
+T. Hastie. Stanford University, 2013. 
+
+\item \textbf{The Sparse Matrix and glmnet}. 
+M. Amunategui. 2014. <http://amunategui.github.io/sparse-matrix-glmnet>
+
+
+\item \textbf{What are the advantages of different classification algorithms?}. Quora, 2015.
+<https://www.quora.com/What-are-the-advantages-of-different-classification-algorithms>
+
+\end{itemize}
+
 
